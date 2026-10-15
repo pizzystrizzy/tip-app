@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tip Screen</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+*{box-sizing:inherit}
+html,body{margin:0;min-height:100%;background:#111;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{padding:16px;max-width:560px;margin:0 auto;text-align:center}
+h1{font-size:1.6rem;margin:12px 0 4px}
+p.sub{margin:0 0 18px;color:#bbb}
+.btns{display:grid;gap:12px}
+button.tip{font-size:1.5rem;font-weight:700;padding:22px;border:0;border-radius:16px;color:#fff;cursor:pointer}
+.b0{background:#6b7280}.b10{background:#d97706}.b20{background:#2563eb}.b30{background:#16a34a}
+#result{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;z-index:10}
+#result.show{display:flex}
+#result .pic{font-size:11rem;line-height:1;animation:pop .5s ease-out}
+#result img{max-width:90%;max-height:60vh;border-radius:16px;animation:pop .5s ease-out}
+#result h2{font-size:2rem;margin:16px 0 6px}
+#result p{font-size:1.2rem;margin:0 0 24px;max-width:22em}
+#result button{font-size:1.1rem;padding:14px 28px;border:0;border-radius:999px;background:#fff;color:#111;font-weight:700}
+@keyframes pop{from{transform:scale(.2) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+<h1>🧾 Your total is ready</h1>
+<p class="sub">Would you like to leave a tip?</p>
+<div class="btns" id="btns"></div>
+
+<div id="result">
+  <div class="pic" id="pic"></div>
+  <h2 id="title"></h2>
+  <p id="msg"></p>
+  <button id="back">Ask again</button>
+</div>
+
+<script>
+// Files are expected in the same folder as this HTML file.
+// If a file is missing, the app falls back to an emoji and a synthesized sound.
+const OPTIONS = [
+  {label:"No tip", img:"No_tip.JPG", audio:"no_tip.mov", emoji:"😐", bg:"#374151", title:"No tip?!", msg:"The server is staring into your soul.", sound:"trombone", cls:"b0"},
+  {label:"$10", img:"10_tip.JPG", audio:"10_tip.MP4", emoji:"😒", bg:"#b45309", title:"Ten dollars.", msg:"Bold. Cheap, but bold.", sound:"womp", cls:"b10"},
+  {label:"$20", img:"20_tip.JPG", audio:"20_tip.MP4", emoji:"😊", bg:"#1d4ed8", title:"Twenty dollars!", msg:"A person of culture and taste.", sound:"ding", cls:"b20"},
+  {label:"$30", img:"30_tip.JPG", audio:"30_tip.MP4", emoji:"🤩", bg:"#15803d", title:"THIRTY DOLLARS!", msg:"You are a legend. The server is crying happy tears.", sound:"fanfare", cls:"b30"}
+];
+
+let ctx;
+function ac(){ if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); if(ctx.state==="suspended") ctx.resume(); return ctx; }
+function tone(freq, start, dur, type="sine", vol=.3, slideTo){
+  const c = ac(), o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, c.currentTime+start);
+  if(slideTo) o.frequency.linearRampToValueAtTime(slideTo, c.currentTime+start+dur);
+  g.gain.setValueAtTime(vol, c.currentTime+start);
+  g.gain.exponentialRampToValueAtTime(.001, c.currentTime+start+dur);
+  o.connect(g).connect(c.destination); o.start(c.currentTime+start); o.stop(c.currentTime+start+dur+.05);
+}
+const SOUNDS = {
+  trombone(){ [[311,0,.45],[294,.5,.45],[277,1,.45]].forEach(([f,s,d])=>tone(f,s,d,"sawtooth",.25)); tone(277,1.5,1.2,"sawtooth",.25,200); },
+  womp(){ tone(220,0,.35,"sawtooth",.25); tone(196,.4,.7,"sawtooth",.25,150); },
+  ding(){ tone(1568,0,.6,"sine",.3); tone(2093,.15,.9,"sine",.3); },
+  fanfare(){ [[523,0],[659,.15],[784,.3],[1047,.45]].forEach(([f,s])=>tone(f,s,.25,"square",.2)); tone(1047,.7,1,"square",.2); tone(784,.7,1,"square",.15); tone(659,.7,1,"square",.15); }
+};
+
+// Preload media so it appears and plays instantly
+OPTIONS.forEach(o => {
+  const im = new Image(); im.onerror = () => { o.noImg = true; }; im.src = o.img;
+  o.el = new Audio(); o.el.preload = "auto";
+  o.el.onerror = () => { o.noAudio = true; };
+  o.el.src = o.audio;
+});
+
+const res = document.getElementById("result");
+let playing = null;
+function stop(){ if(playing){ playing.pause(); playing.currentTime = 0; playing = null; } }
+
+function choose(o){
+  res.style.background = o.bg;
+  const pic = document.getElementById("pic");
+  pic.innerHTML = "";
+  if(o.noImg){ pic.textContent = o.emoji; }
+  else {
+    const im = document.createElement("img");
+    im.onerror = () => { pic.textContent = o.emoji; };
+    im.src = o.img; pic.appendChild(im);
+  }
+  document.getElementById("title").textContent = o.title;
+  document.getElementById("msg").textContent = o.msg;
+  res.classList.add("show");
+  stop();
+  if(o.noAudio){ SOUNDS[o.sound](); return; }
+  playing = o.el; o.el.currentTime = 0;
+  o.el.play().catch(e => { if(e.name !== "NotAllowedError") SOUNDS[o.sound](); });
+}
+document.getElementById("back").onclick = () => { stop(); res.classList.remove("show"); };
+
+const btns = document.getElementById("btns");
+OPTIONS.forEach(o => {
+  const b = document.createElement("button");
+  b.className = "tip " + o.cls; b.textContent = o.label;
+  b.onclick = () => choose(o);
+  btns.appendChild(b);
+});
+</script>
+</body>
+</html>
